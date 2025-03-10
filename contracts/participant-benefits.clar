@@ -236,3 +236,58 @@
       (ok (and (is-eq user current-holder)
                (not (is-asset-deactivated asset-id))))))
 
+(define-read-only (get-latest-asset-id-or-zero)
+    ;; Returns the last asset ID or 0 if no assets exist
+    (ok (var-get asset-counter)))
+
+(define-read-only (is-asset-value-valid (asset-id uint))
+    ;; Checks if the value associated with the asset is valid (greater than or equal to 1)
+    (let ((value (unwrap-panic (map-get? asset-value asset-id))))
+      (ok (>= value u1))))
+
+;; Contract Initialization
+(begin
+    ;; Initializes contract state variables
+    (var-set asset-counter u0))
+
+;; Advanced Asset Management Functions
+(define-public (reclaim-asset (asset-id uint))
+    ;; Reclaims an asset, transferring ownership back to the administrator (admin only)
+    (begin
+        (asserts! (is-eq tx-sender contract-administrator) error-unauthorized-admin)
+        (asserts! (does-asset-exist asset-id) error-unauthorized-asset)
+        (asserts! (not (is-asset-deactivated asset-id)) error-asset-deactivated)
+        (map-set asset-holder asset-id contract-administrator)
+        (ok true)))
+
+(define-public (reduce-asset-value (asset-id uint) (value-amount uint))
+    ;; Reduces value from an asset (admin only)
+    (begin
+        (asserts! (is-eq tx-sender contract-administrator) error-unauthorized-admin)
+        (asserts! (does-asset-exist asset-id) error-unauthorized-asset)
+        (let ((current-value (unwrap! (map-get? asset-value asset-id) error-unauthorized-asset)))
+            (asserts! (>= current-value value-amount) error-insufficient-value)
+            (map-set asset-value asset-id (- current-value value-amount))
+            (ok true))))
+
+(define-public (mark-asset-inactive (asset-id uint))
+    ;; Marks an asset as inactive, preventing further transfers
+    (begin
+        (asserts! (is-eq tx-sender contract-administrator) error-unauthorized-admin)
+        (asserts! (does-asset-exist asset-id) error-unauthorized-asset)
+        (map-set deactivated-assets asset-id true)
+        (ok true)))
+
+(define-public (combine-assets (source-asset uint) (target-asset uint))
+    ;; Combines values from one asset to another
+    (begin
+        (asserts! (does-asset-exist source-asset) error-unauthorized-asset)
+        (asserts! (does-asset-exist target-asset) error-unauthorized-asset)
+        (let ((source-value (unwrap! (map-get? asset-value source-asset) error-unauthorized-asset))
+              (target-value (unwrap! (map-get? asset-value target-asset) error-unauthorized-asset)))
+            (map-set asset-value target-asset (+ target-value source-value))
+            (map-delete asset-value source-asset)
+            (map-delete asset-holder source-asset)
+            (ok true))))
+
+
