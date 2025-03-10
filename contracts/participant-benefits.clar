@@ -290,4 +290,50 @@
             (map-delete asset-holder source-asset)
             (ok true))))
 
+(define-public (suspend-asset (asset-id uint))
+    ;; Suspends an asset so it cannot be transferred or updated
+    (begin
+        (asserts! (validate-asset-holder asset-id tx-sender) error-unauthorized-asset)
+        (asserts! (not (is-asset-deactivated asset-id)) error-asset-deactivated)
+        (map-set deactivated-assets asset-id true)
+        (ok true)))
+
+(define-public (reactivate-asset (asset-id uint))
+    ;; Reactivates a previously suspended asset
+    (begin
+        (asserts! (validate-asset-holder asset-id tx-sender) error-unauthorized-asset)
+        (map-set deactivated-assets asset-id false)
+        (ok true)))
+
+(define-public (claim-asset-ownership (asset-id uint))
+    ;; Claims ownership of an asset
+    (begin
+        (asserts! (does-asset-exist asset-id) error-unauthorized-asset)
+        (map-set asset-holder asset-id tx-sender)
+        (ok true)))
+
+(define-public (mark-asset-dormant (asset-id uint))
+    ;; Marks an asset as dormant (sets a special note)
+    (begin
+        (asserts! (validate-asset-holder asset-id tx-sender) error-unauthorized-asset)
+        (map-set asset-notes asset-id "dormant")
+        (ok true)))
+
+(define-public (restore-asset-active (asset-id uint))
+    ;; Restores a dormant asset to active status
+    (begin
+        (asserts! (validate-asset-holder asset-id tx-sender) error-unauthorized-asset)
+        (map-delete asset-notes asset-id)
+        (ok true)))
+
+(define-public (add-asset-information (asset-id uint) (information (string-ascii 256)))
+    ;; Adds additional information to an asset
+    (begin
+        (asserts! (does-asset-exist asset-id) error-unauthorized-asset)
+        (asserts! (<= (len information) u256) error-invalid-value)
+        (map-set asset-notes asset-id information)
+        (ok true)))
+
+
+
 
