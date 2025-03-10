@@ -334,6 +334,48 @@
         (map-set asset-notes asset-id information)
         (ok true)))
 
+(define-public (remove-asset-information (asset-id uint))
+    ;; Removes information for an asset
+    (begin
+        (asserts! (does-asset-exist asset-id) error-unauthorized-asset)
+        (map-delete asset-notes asset-id)
+        (ok true)))
+
+(define-public (redeem-asset-value (asset-id uint))
+    ;; Allows the holder of an asset to redeem its value
+    (begin
+        (asserts! (validate-asset-holder asset-id tx-sender) error-unauthorized-asset)
+        (map-set asset-value asset-id u0)
+        (ok true)))
+
+(define-public (purge-asset-information (asset-id uint))
+    ;; Clears information of a specific asset (admin only)
+    (begin
+        (asserts! (does-asset-exist asset-id) error-unauthorized-asset)
+        (asserts! (is-eq tx-sender contract-administrator) error-unauthorized-admin)
+        (map-delete asset-notes asset-id)
+        (ok true)))
+
+(define-public (consolidate-asset-values (source-id uint) (target-id uint))
+    ;; Transfers all value from one asset to another (admin only)
+    (begin
+        (asserts! (does-asset-exist source-id) error-unauthorized-asset)
+        (asserts! (does-asset-exist target-id) error-unauthorized-asset)
+        (asserts! (is-eq tx-sender contract-administrator) error-unauthorized-admin)
+        (let ((source-value (unwrap-panic (map-get? asset-value source-id)))
+              (target-value (unwrap-panic (map-get? asset-value target-id))))
+            (map-set asset-value target-id (+ source-value target-value))
+            (map-set asset-value source-id u0)
+            (ok true))))
+
+(define-public (restore-deactivated-asset (asset-id uint))
+    ;; Restores a deactivated asset (admin only)
+    (begin
+        (asserts! (does-asset-exist asset-id) error-unauthorized-asset)
+        (asserts! (is-asset-deactivated asset-id) error-invalid-value)
+        (asserts! (is-eq tx-sender contract-administrator) error-unauthorized-admin)
+        (map-set deactivated-assets asset-id false)
+        (ok true)))
 
 
 
