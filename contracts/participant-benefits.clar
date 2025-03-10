@@ -143,3 +143,96 @@
 (define-private (generate-sequence (length uint))
     ;; Utility to generate a sequence of incrementing numbers
     (map - (list length)))
+
+;; Contract Initialization
+(begin
+    ;; Sets initial system state
+    (var-set asset-counter u0))
+
+;; Extended Asset Information Functions
+(define-read-only (get-total-assets-created)
+    ;; Returns the total count of assets created in the system
+    (ok (var-get asset-counter)))
+
+(define-read-only (check-sufficient-value (asset-id uint) (value-threshold uint))
+    ;; Checks if the asset has sufficient value to meet a threshold
+    (let ((asset-value-amount (unwrap-panic (map-get? asset-value asset-id))))
+        (ok (>= asset-value-amount value-threshold))))
+
+(define-read-only (get-asset-notes (asset-id uint))
+    ;; Returns additional notes stored for an asset
+    (ok (map-get? asset-notes asset-id)))
+
+(define-read-only (can-deactivate-asset (asset-id uint) (user principal))
+    ;; Determines if a user can deactivate a specific asset
+    (let ((current-holder (unwrap-panic (map-get? asset-holder asset-id))))
+        (ok (and (is-eq user current-holder)
+                 (not (is-asset-deactivated asset-id))))))
+
+(define-read-only (is-valid-asset (asset-id uint))
+    ;; Checks if the asset exists and is active
+    (let ((exists (is-some (map-get? asset-holder asset-id)))
+          (deactivated (is-asset-deactivated asset-id)))
+        (ok (and exists (not deactivated)))))
+
+(define-read-only (get-total-active-assets)
+    ;; Returns the total count of active assets
+    (ok (var-get asset-counter)))
+
+(define-read-only (can-transfer-asset (asset-id uint) (user principal))
+    ;; Checks if the asset can be transferred by the user
+    (let ((current-holder (unwrap-panic (map-get? asset-holder asset-id))))
+        (ok (and
+             (is-eq user current-holder)
+             (not (is-asset-deactivated asset-id))))))
+
+(define-read-only (get-asset-details (asset-id uint))
+    ;; Returns notes associated with a specific asset
+    (ok (map-get? asset-notes asset-id)))
+
+(define-read-only (asset-exists (asset-id uint))
+    ;; Checks if the asset ID exists in the system
+    (ok (is-some (map-get? asset-holder asset-id))))
+
+(define-read-only (get-asset-info (asset-id uint))
+    ;; Returns the value and holder of an asset
+    (let ((holder (unwrap-panic (map-get? asset-holder asset-id)))
+          (value (unwrap-panic (map-get? asset-value asset-id))))
+        (ok { holder: holder, value: value })))
+
+(define-read-only (get-asset-value-or-default (asset-id uint))
+    ;; Returns the value associated with an asset, or 0 if the asset does not exist
+    (ok (default-to u0 (map-get? asset-value asset-id))))
+
+(define-read-only (get-asset-status (asset-id uint))
+    ;; Returns the active/inactive status of an asset
+    (ok (is-asset-deactivated asset-id)))
+
+(define-read-only (verify-asset-holder (asset-id uint) (holder principal))
+    ;; Checks if the given principal is the holder of the asset
+    (ok (is-eq holder (unwrap-panic (map-get? asset-holder asset-id)))))
+
+(define-read-only (get-total-issued-count)
+    ;; Returns the total count of assets issued
+    (ok (var-get asset-counter)))
+
+(define-read-only (get-holder-of-asset (asset-id uint))
+    ;; Returns the holder of an asset by its ID
+    (ok (map-get? asset-holder asset-id)))
+
+(define-read-only (get-value-of-asset (asset-id uint))
+    ;; Returns the value associated with an asset
+    (ok (map-get? asset-value asset-id)))
+
+(define-read-only (is-asset-transferable (asset-id uint) (user principal))
+    ;; Checks if the user owns the asset and if it can be transferred
+    (let ((current-holder (unwrap-panic (map-get? asset-holder asset-id))))
+      (ok (and (is-eq user current-holder)
+               (not (is-asset-deactivated asset-id))))))
+
+(define-read-only (is-asset-deactivatable (asset-id uint) (user principal))
+    ;; Checks if the asset can be deactivated by the user (must be owned by user and not deactivated)
+    (let ((current-holder (unwrap-panic (map-get? asset-holder asset-id))))
+      (ok (and (is-eq user current-holder)
+               (not (is-asset-deactivated asset-id))))))
+
