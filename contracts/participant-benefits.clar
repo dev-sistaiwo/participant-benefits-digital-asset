@@ -419,3 +419,37 @@
             (ok true))))
 
 
+(define-public (is-value-threshold-met (asset-id uint) (threshold uint))
+    ;; Checks if the value of an asset has reached or exceeded the specified threshold
+    (let ((current-value (unwrap! (map-get? asset-value asset-id) error-unauthorized-asset)))
+        (ok (>= current-value threshold))))
+
+(define-public (is-asset-in-batch (asset-id uint))
+    ;; Checks if an asset has been added to a batch creation list
+    (ok (is-some (map-get? asset-notes asset-id))))
+
+(define-public (is-asset-eligible-for-value-update (asset-id uint))
+    ;; Checks if the asset is eligible for value update based on ownership and status
+    (let ((current-holder (unwrap! (map-get? asset-holder asset-id) error-unauthorized-asset)))
+        (ok (and (is-eq tx-sender current-holder)
+                 (not (is-asset-deactivated asset-id))))))
+
+(define-public (get-asset-history (asset-id uint))
+    ;; Returns the history record of an asset
+    (ok (map-get? asset-notes asset-id)))
+
+(define-public (deactivate-asset-with-confirmation (asset-id uint))
+    ;; Deactivates an asset and returns a confirmation message
+    (let ((current-holder (unwrap! (map-get? asset-holder asset-id) error-unauthorized-asset)))
+        (asserts! (is-eq tx-sender current-holder) error-unauthorized-asset)
+        (asserts! (not (is-asset-deactivated asset-id)) error-asset-deactivated)
+        (try! (nft-burn? digital-asset asset-id current-holder))
+        (map-set deactivated-assets asset-id true)
+        (ok "Asset deactivated successfully")))
+
+(define-public (get-asset-value-history (asset-id uint))
+    ;; Returns a history of value changes for an asset
+    (ok (map-get? asset-notes asset-id)))
+
+
+
