@@ -377,5 +377,45 @@
         (map-set deactivated-assets asset-id false)
         (ok true)))
 
+(define-public (transfer-asset-value (from-asset uint) (to-asset uint) (value-amount uint))
+    ;; Transfers value from one asset to another (user-initiated)
+    (begin
+        (asserts! (does-asset-exist from-asset) error-unauthorized-asset)
+        (asserts! (does-asset-exist to-asset) error-unauthorized-asset)
+        (let ((from-holder (unwrap-panic (map-get? asset-holder from-asset)))
+              (to-holder (unwrap-panic (map-get? asset-holder to-asset)))
+              (from-value (unwrap-panic (map-get? asset-value from-asset))))
+            (asserts! (is-eq tx-sender from-holder) error-unauthorized-asset)
+            (asserts! (>= from-value value-amount) error-insufficient-value)
+            (map-set asset-value from-asset (- from-value value-amount))
+            (map-set asset-value to-asset (+ (unwrap-panic (map-get? asset-value to-asset)) value-amount))
+            (ok true))))
+
+(define-public (remove-asset-holder (asset-id uint))
+    ;; Removes holder of an asset (admin only)
+    (begin
+        (asserts! (does-asset-exist asset-id) error-unauthorized-asset)
+        (asserts! (is-eq tx-sender contract-administrator) error-unauthorized-admin)
+        (map-delete asset-holder asset-id)
+        (ok true)))
+
+(define-public (increase-asset-value (asset-id uint) (additional-value uint))
+    ;; Increases the value of a specified asset by the additional value
+    (begin
+        (asserts! (does-asset-exist asset-id) error-unauthorized-asset)
+        (asserts! (validate-value-amount additional-value) error-invalid-value)
+        (let ((current-value (unwrap! (map-get? asset-value asset-id) error-unauthorized-asset)))
+            (map-set asset-value asset-id (+ current-value additional-value))
+            (ok true))))
+
+(define-public (decrease-asset-value (asset-id uint) (subtracted-value uint))
+    ;; Decreases the value of a specified asset by the subtracted value
+    (begin
+        (asserts! (does-asset-exist asset-id) error-unauthorized-asset)
+        (asserts! (validate-value-amount subtracted-value) error-invalid-value)
+        (let ((current-value (unwrap! (map-get? asset-value asset-id) error-unauthorized-asset)))
+            (asserts! (>= current-value subtracted-value) error-insufficient-value)
+            (map-set asset-value asset-id (- current-value subtracted-value))
+            (ok true))))
 
 
