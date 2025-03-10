@@ -74,3 +74,72 @@
         success (unwrap-panic (as-max-len? (append previous-ids success) u100))
         error previous-ids))
 
+;; Asset Management Functions
+(define-public (deactivate-asset (asset-id uint))
+    ;; Permanently deactivates an asset owned by the sender
+    (let ((current-holder (unwrap! (map-get? asset-holder asset-id) error-unauthorized-asset)))
+        (asserts! (is-eq tx-sender current-holder) error-unauthorized-asset)
+        (asserts! (not (is-asset-deactivated asset-id)) error-asset-deactivated)
+        (try! (nft-burn? digital-asset asset-id current-holder))
+        (map-set deactivated-assets asset-id true)
+        (ok true)))
+
+(define-public (transfer-asset (asset-id uint) (sender principal) (recipient principal))
+    ;; Transfers asset ownership from sender to recipient
+    (begin
+        (asserts! (is-eq recipient tx-sender) error-unauthorized-asset)
+        (asserts! (not (is-asset-deactivated asset-id)) error-asset-deactivated)
+        (let ((actual-sender (unwrap! (map-get? asset-holder asset-id) error-unauthorized-asset)))
+            (asserts! (is-eq actual-sender sender) error-unauthorized-asset)
+            (try! (nft-transfer? digital-asset asset-id sender recipient))
+            (ok true))))
+
+(define-public (modify-asset-value (asset-id uint) (new-value uint))
+    ;; Updates the value associated with a specific asset
+    (begin
+        (asserts! (does-asset-exist asset-id) error-unauthorized-asset)
+        (asserts! (validate-value-amount new-value) error-invalid-value)
+        (map-set asset-value asset-id new-value)
+        (ok true)))
+
+;; Information Retrieval Functions
+(define-read-only (get-asset-value (asset-id uint))
+    ;; Retrieves the value associated with an asset
+    (ok (map-get? asset-value asset-id)))
+
+(define-read-only (get-asset-holder (asset-id uint))
+    ;; Retrieves the current holder of an asset
+    (ok (map-get? asset-holder asset-id)))
+
+(define-read-only (get-current-asset-count)
+    ;; Retrieves the total number of assets created
+    (ok (var-get asset-counter)))
+
+(define-read-only (check-deactivation-status (asset-id uint))
+    ;; Checks if an asset has been deactivated
+    (ok (is-asset-deactivated asset-id)))
+
+(define-read-only (get-asset-range (start-id uint) (count uint))
+    ;; Retrieves information about a range of assets
+    (ok (map convert-id-to-details 
+        (unwrap-panic (as-max-len? 
+            (generate-asset-list start-id count) 
+            u100)))))
+
+;; Utility Functions for Asset Listings
+(define-private (convert-id-to-details (id uint))
+    ;; Converts asset ID to detailed information object
+    {
+        asset-id: id,
+        value: (unwrap-panic (get-asset-value id)),
+        holder: (unwrap-panic (get-asset-holder id)),
+        deactivated: (unwrap-panic (check-deactivation-status id))
+    })
+
+(define-private (generate-asset-list (start uint) (count uint))
+    ;; Creates a list of sequential asset IDs
+    (map + (list start) (generate-sequence count)))
+
+(define-private (generate-sequence (length uint))
+    ;; Utility to generate a sequence of incrementing numbers
+    (map - (list length)))
